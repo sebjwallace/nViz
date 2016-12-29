@@ -4,7 +4,8 @@ function nViz(){
   var events = new EventsHandler()
 
   var settings = {
-    root: document.querySelector('svg')
+    root: document.querySelector('svg'),
+    cellSize: 10
   }
 
   var cellIndex = {}
@@ -34,6 +35,9 @@ function nViz(){
       else if(i == 'data')
         for(var d in attrs.data)
           node.setAttribute('data-'+d,attrs.data[d])
+      else if(i == 'attrs')
+        for(var a in attrs.attrs)
+          node.setAttribute(a,attrs.attrs[a])
       else node.setAttribute(i,attrs[i])
     }
   }
@@ -76,12 +80,13 @@ function nViz(){
             var color = bitIndex[(y*sqrt)+x] ? (args.activeColor || 'black')
               : (args.inactiveColor || 'rgba(0,0,0,0.2)')
             var bit = createNode('rect')
+            var cellSize = args.size || settings.cellSize
             setAttributes(bit,{
-              height: args.size || 8,
-              width: args.size || 8,
+              height: cellSize,
+              width: cellSize,
               fill: color,
-              x: ((args.size || 8) + 1) * x,
-              y: ((args.size || 8) + 1) * y
+              x: (cellSize + 1) * x,
+              y: (cellSize + 1) * y
             })
             settings.root.appendChild(bit)
           }
@@ -138,13 +143,16 @@ function nViz(){
       cell: function(args){
         args = normalizeArgs(args)
         var cell = createNode('rect')
+        var color = args.color || 'black'
+        color = args.activated ? 'blue' : color
+        color = args.predicted ? 'yellow' : color
         var attrs = {
           id: args.id,
           class: 'nViz-cell ' + (args.class || ''),
           data: args.data,
-          height: args.size,
-          width: args.size,
-          fill: args.color || 'black',
+          height: args.size || settings.cellSize,
+          width: args.size || settings.cellSize,
+          fill: color,
           x: args.x || 0,
           y: args.y || 0,
           events: args.events
@@ -156,44 +164,56 @@ function nViz(){
       },
 
       dendrite: function(args){
-        var dendrite = createNode('line')
+        args = normalizeArgs(args)
+        var dendrite = createNode('path')
+        var angle = Math.atan2(args.targetY-args.sourceY,args.targetX-args.sourceX)
+        var path = 'M'+args.sourceX+' '+args.sourceY+' L'+args.targetX+' '+args.targetY
+        if(!args.hideTail)
+          path += 'M'+args.sourceX+' '+args.sourceY+' L'+args.targetX+' '+args.targetY
+              +' L'+((args.targetX) + Math.cos(angle-45) * 5)+' '+((args.targetY) + Math.sin(angle-45) * 5)
+              +' L'+(args.targetX)+' '+(args.targetY)
+              +' L'+((args.targetX) + Math.cos(angle+45) * 5)+' '+((args.targetY) + Math.sin(angle+45) * 5)
+              +' L'+(args.targetX)+' '+(args.targetY)
         setAttributes(dendrite,{
           class: 'nViz-dendrite ' + (args.class || ''),
           data: args.data,
+          attrs: args.attrs,
           stroke : args.color || 'black',
+          fill: 'none',
           opacity: (args.opacity || 1) * (args.weight || 1),
-          x1: args.sourceX,
-          y1: args.sourceY,
-          x2: args.targetX,
-          y2: args.targetY
+          d: path + ' Z'
         })
         settings.root.appendChild(dendrite)
         return dendrite
       },
 
       segment: function(args){
+        args = normalizeArgs(args)
         var body = createNode('rect')
         setAttributes(body,{
-          height: args.size || 4,
-          width: args.size || 4,
+          height: args.size || 2,
+          width: args.size || 2,
           fill: args.color || 'black',
+          opacity: args.opacity || 1,
           x: args.sourceX,
-          y: args.sourceY
+          y: args.sourceY,
+          class: args.class,
+          events: args.events,
+          data: args.data,
+          attrs: args.attrs
         })
         for(var i = 0; i < args.targets.length; i++){
-          var target = getCell(args.targets[i].cell)
-          var targetX = args.targets[i].x || target.x
-          var targetY = args.targets[i].y || target.y
-          var synapse = createNode('line')
-          setAttributes(synapse,{
-            x1: args.sourceX + ((args.size || 0) / 2),
-            y1: args.sourceY + ((args.size || 0) / 2),
-            x2: targetX,
-            y2: targetY,
+          nViz.render.dendrite({
+            sourceX: args.sourceX,
+            sourceY: args.sourceY,
+            target: args.targets[i].cell,
             stroke: args.color || 'black',
-            opacity: (args.opacity || 1) * (args.targets[i].weight || 1)
+            opacity: (args.opacity || 1) * (args.targets[i].weight || 1),
+            class: args.class,
+            events: args.events,
+            data: args.data,
+            attrs: args.attrs
           })
-          settings.root.appendChild(synapse)
         }
         settings.root.appendChild(body)
       },
@@ -213,17 +233,26 @@ function nViz(){
         var x = minX + ((maxX - minX) / 2) + (deltaX * 0.25)
         var y = minY + ((maxY - minY) / 2) + (deltaY * 0.25)
         var dendrite = nViz.render.dendrite({
-          sourceX: args.sourceX,
-          sourceY: args.sourceY,
+          hideTail: true,
+          sourceX: args.sourceX + (getCell(args.source).width / 2),
+          sourceY: args.sourceY + (getCell(args.source).height / 2),
           targetX: x,
           targetY: y,
-          opacity: args.opacity
+          opacity: args.opacity,
+          class: args.class,
+          events: args.events,
+          data: args.data,
+          attrs: args.attrs
         })
         var segment = nViz.render.segment({
           sourceX: x,
           sourceY: y,
           targets: args.targets,
-          opacity: args.opacity
+          opacity: args.opacity,
+          class: args.class,
+          events: args.events,
+          data: args.data,
+          attrs: args.attrs
         })
       },
 
@@ -272,7 +301,7 @@ function nViz(){
       column: function(args){
         var cells = []
         for(var i = 0; i < args.cells.length; i++){
-          var cell = nViz.render.cell({
+          var attrs = {
             id: args.cells[i].id,
             class: (args.class || '') + ' nViz-cell-' + i,
             x: args.offsetX || 0,
@@ -281,30 +310,33 @@ function nViz(){
             color: args.color || args.cells[i].color,
             events: args.events,
             data: args.data
-          })
+          }
+          for(var c in args.cells[i])
+            attrs[c] = args.cells[i][c]
+          var cell = nViz.render.cell(attrs)
           cells.push(cell)
         }
         return cells
       },
 
       spatialPooler: function(args){
+        var cellSize = args.cellSize || settings.cellSize
         var inputSpace = nViz.render.layer({
           cells: args.inputCells,
-          cellSize: args.cellSize || 8,
+          cellSize: cellSize,
           cellMargin: args.cellMargin || 1
         })
         var columns = nViz.render.temporalMemory({
           columns: args.columns,
-          activeCells: [4,8,90],
-          predictedCells: [12,55,80,94]
+          offsetY: (cellSize) * 10
         })
         for(var i = 0; i < args.columns.length; i++){
           var className = 'nViz-column'
           var distalDendrite = nViz.render.distalDendrite({
             source: args.columns[i].cells[0],
             targets: args.columns[i].sources,
-            offsetX: (args.cellSize || 8) * 0.5,
-            targetOffsetY: (args.cellSize || 8),
+            offsetX: cellSize * 0.5,
+            targetOffsetY: cellSize + 5,
             opacity: args.dendriteOpacity || 0.4,
             permananceThreshold: args.columns[i].permananceThreshold,
             permanences: args.columns[i].sourcesPermanaces,
@@ -325,15 +357,16 @@ function nViz(){
       },
 
       temporalMemory: function(args){
+        var cellSize = args.cellSize || settings.cellSize
         for(var i = 0; i < args.columns.length; i++){
           var className = 'nViz-column'
           var column = nViz.render.column({
             class: className + ' nViz-column-' + i,
             cells: args.columns[i].cells,
-            cellSize: args.cellSize || 8,
+            cellSize: cellSize,
             cellMargin: args.cellMargin || 1,
-            offsetX: ((args.cellSize || 8) + (args.cellMargin || 1)) * i,
-            offsetY: (args.cellSize || 8) * 10,
+            offsetX: (cellSize + (args.cellMargin || 1)) * i,
+            offsetY: args.offsetY,
             events: {
               onmouseover: function(e){ events.triggerEvent(className,e) },
               onmouseleave: function(e){ events.triggerEvent('recoverColumnVisibility',e) }
@@ -352,17 +385,23 @@ function nViz(){
               cells[c].setAttribute('opacity',1)
           })
         }
-        function changeCellColor(index,color){
-            var y = Math.floor((index-1) / args.columns.length)
-            var x = (index-1) - (y * args.columns.length)
-            var cell = document.getElementsByClassName('nViz-cell-' + y + ' nViz-column-' + x)
-            if(cell[0])
-              cell[0].setAttribute('fill',color)
+        for(var c = 0; c < args.columns.length; c++){
+          for(var i = 0; i < args.columns[c].cells.length; i++){
+            for(var s = 0; s < args.columns[c].cells[i].segments.length; s++){
+              var segment = {
+                class: 'nViz-column',
+                attrs: {'stroke-opacity': 0.5},
+                data:{ columnIndex: c },
+                events: {
+                  onmouseover: function(){console.log('segment')}
+                }
+              }
+              for(var a in args.columns[c].cells[i].segments[s])
+                segment[a] = args.columns[c].cells[i].segments[s][a]
+              nViz.render.proximalDendrite(segment)
+            }
+          }
         }
-        for(var i = 0; i < (args.activeCells || []).length; i++)
-          changeCellColor(args.activeCells[i],'yellow')
-        for(var i = 0; i < (args.predictedCells || []).length; i++)
-          changeCellColor(args.predictedCells[i],'green')
       }
 
     }
