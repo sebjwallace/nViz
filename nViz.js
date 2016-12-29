@@ -274,7 +274,7 @@ function nViz(){
         for(var i = 0; i < args.cells.length; i++){
           var cell = nViz.render.cell({
             id: args.cells[i].id,
-            class: args.class,
+            class: (args.class || '') + ' nViz-cell-' + i,
             x: args.offsetX || 0,
             y: i * (args.cellSize + args.cellMargin) + (args.offsetY || 0),
             size: args.cellSize || args.cells[i].size,
@@ -293,11 +293,42 @@ function nViz(){
           cellSize: args.cellSize || 8,
           cellMargin: args.cellMargin || 1
         })
+        var columns = nViz.render.temporalMemory({
+          columns: args.columns,
+          activeCells: [4,8,90],
+          predictedCells: [12,55,80,94]
+        })
         for(var i = 0; i < args.columns.length; i++){
-          var columnClassName = 'nViz-column-' + i
-          var className = 'nViz-column ' + columnClassName
+          var className = 'nViz-column'
+          var distalDendrite = nViz.render.distalDendrite({
+            source: args.columns[i].cells[0],
+            targets: args.columns[i].sources,
+            offsetX: (args.cellSize || 8) * 0.5,
+            targetOffsetY: (args.cellSize || 8),
+            opacity: args.dendriteOpacity || 0.4,
+            permananceThreshold: args.columns[i].permananceThreshold,
+            permanences: args.columns[i].sourcesPermanaces,
+            data: {columnIndex: i}
+          })
+          events.addEvent(className, function(e){
+            var fadeOut = document.getElementsByClassName('nViz-distal-dendrite')
+            for(var c = 0; c < fadeOut.length; c++)
+              if(fadeOut[c].getAttribute('data-columnIndex') != e.target.getAttribute('data-columnIndex'))
+                fadeOut[c].setAttribute('stroke-opacity',0.05)
+          })
+          events.addEvent('recoverColumnVisibility', function(e){
+            var cells = document.getElementsByClassName('nViz-distal-dendrite')
+            for(var c = 0; c < cells.length; c++)
+              cells[c].setAttribute('stroke-opacity',1)
+          })
+        }
+      },
+
+      temporalMemory: function(args){
+        for(var i = 0; i < args.columns.length; i++){
+          var className = 'nViz-column'
           var column = nViz.render.column({
-            class: className,
+            class: className + ' nViz-column-' + i,
             cells: args.columns[i].cells,
             cellSize: args.cellSize || 8,
             cellMargin: args.cellMargin || 1,
@@ -307,14 +338,12 @@ function nViz(){
               onmouseover: function(e){ events.triggerEvent(className,e) },
               onmouseleave: function(e){ events.triggerEvent('recoverColumnVisibility',e) }
             },
-            data: {
-              columnId: i
-            }
+            data: {columnIndex: i}
           })
           events.addEvent(className, function(e){
             var fadeOut = document.getElementsByClassName('nViz-column')
             for(var c = 0; c < fadeOut.length; c++)
-              if(fadeOut[c].className.baseVal != e.target.className.baseVal)
+              if(fadeOut[c].getAttribute('data-columnIndex') != e.target.getAttribute('data-columnIndex'))
                 fadeOut[c].setAttribute('opacity',0.2)
           })
           events.addEvent('recoverColumnVisibility', function(e){
@@ -322,29 +351,18 @@ function nViz(){
             for(var c = 0; c < cells.length; c++)
               cells[c].setAttribute('opacity',1)
           })
-          var distalDendrite = nViz.render.distalDendrite({
-            class: columnClassName,
-            source: args.columns[i].cells[0],
-            targets: args.columns[i].sources,
-            offsetX: (args.cellSize || 8) * 0.5,
-            targetOffsetY: (args.cellSize || 8),
-            opacity: args.dendriteOpacity || 0.4,
-            permananceThreshold: args.columns[i].permananceThreshold,
-            permanences: args.columns[i].sourcesPermanaces,
-            data: {columnId: i}
-          })
-          events.addEvent(className, function(e){
-            var fadeOut = document.getElementsByClassName('nViz-distal-dendrite')
-            for(var c = 0; c < fadeOut.length; c++)
-              if(fadeOut[c].getAttribute('data-columnId') != e.target.getAttribute('data-columnId'))
-                fadeOut[c].setAttribute('stroke-opacity',0.05)
-          })
-          events.addEvent('recoverColumnVisibility', function(e){
-            var cells = document.getElementsByClassName('nViz-distal-dendrite')
-            for(var c = 0; c < cells.length; c++)
-              cells[c].setAttribute('stroke-opacity',1)
-          })
         }
+        function changeCellColor(index,color){
+            var y = Math.floor((index-1) / args.columns.length)
+            var x = (index-1) - (y * args.columns.length)
+            var cell = document.getElementsByClassName('nViz-cell-' + y + ' nViz-column-' + x)
+            if(cell[0])
+              cell[0].setAttribute('fill',color)
+        }
+        for(var i = 0; i < (args.activeCells || []).length; i++)
+          changeCellColor(args.activeCells[i],'yellow')
+        for(var i = 0; i < (args.predictedCells || []).length; i++)
+          changeCellColor(args.predictedCells[i],'green')
       }
 
     }
