@@ -5,7 +5,7 @@ function randomInt(min, max){
 
 nViz.settings({
   root:document.getElementById('svg'),
-  cellSize: 14
+  cellSize: 18
 })
 
 var inputCells = []
@@ -40,7 +40,7 @@ for(var x = 0; x < 10; x++){
 for(var c in columns){
   for(var i in columns[c].cells){
     var segments = []
-    for(var s = 0; s < 1; s++){
+    for(var s = 0; s < 2; s++){
       var targets = []
       for(var t = 0; t < 2; t++){
         var cell = columns[randomInt(0,9)].cells[randomInt(0,9)]
@@ -51,13 +51,13 @@ for(var c in columns){
         targets: targets
       }
     }
-    if(Math.random() > 0.9)
+    if(Math.random() > 0.7)
       columns[c].cells[i].segments = segments
   }
 }
 
-columns[1].cells[5].activated = true
-columns[4].cells[2].predicted = true
+// columns[1].cells[5].activated = true
+// columns[4].cells[2].predicted = true
 
 nViz.render.spatialPooler({
   inputCells: inputCells,
