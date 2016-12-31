@@ -80,18 +80,30 @@ function nViz(){
     },
 
     animate: function(args){
-      var step = 0
-      var interval = setInterval(function(){
-        (args.root || settings.root).innerHTML = ''
-        args.render(args.steps[step])
-        step++
-        if(step >= args.steps.length){
-          if(args.repeat)
-            step = 0
-          else
-            clearInterval(interval)
+      var step = 1
+      if(!args.keyboardControl){
+        var interval = setInterval(function(){
+          (args.root || settings.root).innerHTML = ''
+          args.render(args.steps[step])
+          step++
+          if(step >= args.steps.length){
+            if(args.repeat)
+              step = 0
+            else
+              clearInterval(interval)
+          }
+        },args.speed)
+      } else{
+        document.body.onkeyup = function(e){
+          if(e.keyCode == 37)
+            step -= (step > 0 ? 1 : 0)
+          else if(e.keyCode == 39)
+            step += (step < (args.steps.length-1) ? 1 : 0)
+          settings.root.innerHTML = ''
+          args.render(args.steps[step])
         }
-      },args.speed)
+      }
+      args.render(args.steps[0])
     },
 
     render: {
@@ -175,6 +187,8 @@ function nViz(){
             headSize: 1,
             target: getCell(args.targets[i]),
             opacity: (args.opacity || 1) * (args.targets[i].weight || 1),
+            color: getCell(args.source)['data-predicted'] && getCell(target)['data-activated'] ?
+              'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.4)'
           },args))
         }
       },
@@ -216,7 +230,7 @@ function nViz(){
           var target = getCell(args.targets[i])
           if(source && target){
             nViz.render.dendrite(merge({
-              color: target['data-activated'] ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)',
+              color: (target['data-activated'] && args.activeColumn) ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.2)',
               sourceX: source.x + (args.sourceOffsetX || args.offsetX || 0),
               sourceY: source.y + (args.sourceOffsetY || args.offsetY || 0),
               targetX: target.x + (args.targetOffsetX || args.offsetX || 0),
@@ -277,6 +291,7 @@ function nViz(){
             sourceOffsetX: (args.cellSize || settings.cellSize) * 0.5,
             permananceThreshold: args.columns[i].permananceThreshold,
             permanences: args.columns[i].permanences,
+            activeColumn: args.columns[i].active,
             data: {columnIndex: i}
           },args))
           events.addEvent(className, function(e){
