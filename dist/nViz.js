@@ -5,11 +5,10 @@
 
 function nViz(){
 
-  var events = new EventsHandler()
-
   var settings = {
-    root: document.querySelector('svg'),
-    cellSize: 10
+    root: document.querySelector('canvas').getContext('2d'),
+    cellSize: 10,
+    cellMargin: 1
   }
 
   var cellIndex = {}
@@ -29,21 +28,28 @@ function nViz(){
   }
 
   function createNode(type){
-    return document.createElementNS('http://www.w3.org/2000/svg',type)
+    return {type:type}
   }
 
   function setAttributes(node,attrs){
-    for(var i in attrs){
-      if(i == 'events')
-        for(var e in attrs.events)
-          node[e] = attrs.events[e]
-      else if(i == 'data')
-        for(var d in attrs.data)
-          node.setAttribute('data-'+d,attrs.data[d])
-      else if(i == 'attrs')
-        for(var a in attrs.attrs)
-          node.setAttribute(a,attrs.attrs[a])
-      else node.setAttribute(i,attrs[i])
+    var ctx = settings.root
+    if(node.type == 'circle'){
+      ctx.beginPath()
+      ctx.arc(attrs.cx,attrs.cy,attrs.r,0*Math.PI,2*Math.PI)
+      ctx.closePath()
+      ctx.globalAlpha = (attrs.attrs || {})['fill-opacity'] || attrs.opacity || 1
+      ctx.fillStyle = attrs.fill
+      ctx.fill()
+    } else if(node.type == 'path'){
+      ctx.beginPath()
+      for(var i = 0; i < attrs.path.length; i++){
+        ctx.lineTo(attrs.path[i][0],attrs.path[i][1])
+        ctx.moveTo(attrs.path[i][0],attrs.path[i][1])
+      }
+      ctx.globalAlpha = attrs.opacity || (attrs.attrs || {})['stroke-opacity'] || 1
+      ctx.strokeStyle = attrs.stroke
+      ctx.closePath()
+      ctx.stroke()
     }
   }
 
@@ -81,14 +87,15 @@ function nViz(){
     },
 
     clear: function(root){
-      (root || settings.root).innerHTML = ''
+      var canvas = settings.root.canvas
+      settings.root.clearRect(0,0,canvas.height,canvas.width)
     },
 
     animate: function(args){
       var step = 0
       if(!args.keyboardControl){
         var interval = setInterval(function(){
-          (args.root || settings.root).innerHTML = ''
+          nViz.clear()
           args.render(args.steps[step])
           step++
           if(step >= args.steps.length){
@@ -104,7 +111,7 @@ function nViz(){
             step -= (step > 0 ? 1 : 0)
           else if(e.keyCode == 39)
             step += (step < (args.steps.length-1) ? 1 : 0)
-          settings.root.innerHTML = ''
+          nViz.clear()
           args.render(args.steps[step])
         }
       }
@@ -123,7 +130,6 @@ function nViz(){
         color = args.predicted ? 'orange' : color
         var attrs = {
           id: args.id,
-          class: 'nViz-cell ' + (args.class || ''),
           height: size,
           width: size,
           r: size / 2,
@@ -135,7 +141,6 @@ function nViz(){
         }
         setAttributes(cell,merge(attrs,args))
         indexCell(attrs)
-        settings.root.appendChild(cell)
         return cell
       },
 
@@ -149,10 +154,8 @@ function nViz(){
             cx: args.sourceX,
             cy: args.sourceY,
             fill: args.color || 'black',
-            opacity: args.opacity || 1,
-            attrs: { 'fill-opacity': args.attrs['stroke-opacity'] * 2 }
+            opacity: args.opacity || 1
           },args))
-          settings.root.appendChild(body)
         }
         var cellSize = args.cellSize || settings.cellSize
         var centered = args.noAlignment ? 0 : (cellSize * 0.5)
@@ -163,22 +166,17 @@ function nViz(){
         var tX = args.targetX + centered - (Math.cos(direction) * centered)
         var tY = args.targetY + centered - (Math.sin(direction) * centered)
         var angle = Math.atan2(tY-sY,tX-sX)
-        var path = 'M'+sX+' '+sY+' L'+tX+' '+tY+' '
-        if(!args.hideTail)
-          path += 'M'+sX+' '+sY+' L'+tX+' '+tY
-              +' L'+((tX) + Math.cos(angle-45) * 5)+' '+((tY) + Math.sin(angle-45) * 5)
-              +' L'+(tX)+' '+(tY)
-              +' L'+((tX) + Math.cos(angle+45) * 5)+' '+((tY) + Math.sin(angle+45) * 5)
-              +' L'+(tX)+' '+(tY)
         setAttributes(dendrite,merge({
-          class: 'nViz-dendrite ' + (args.class || ''),
           stroke : args.color || 'black',
           fill: 'none',
           opacity: (args.opacity || 1) * (args.weight || 1),
-          d: path + ' Z',
-          style: 'pointer-events: none'
+          path: args.hideTail ? [[sX,sY],[tX,tY]] : [[sX,sY],[tX,tY],
+            [(tX) + Math.cos(angle-45) * 5,(tY) + Math.sin(angle-45) * 5],
+            [tX,tY],
+            [(tX) + Math.cos(angle+45) * 5,(tY) + Math.sin(angle+45) * 5],
+            [tX,tY]
+          ]
         },args))
-        settings.root.appendChild(dendrite)
         return dendrite
       },
 
@@ -187,13 +185,12 @@ function nViz(){
         for(var i = 0; i < args.targets.length; i++){
           var target = args.targets[i]
           var dendriteOpacity = target.permanance > target.permananceThreshold ? 0.2 : 0.08
-          args.attrs['stroke-opacity'] = dendriteOpacity
           nViz.render.dendrite(merge({
             headSize: 1,
             target: getCell(args.targets[i]),
             opacity: (args.opacity || 1) * (args.targets[i].weight || 1),
             color: getCell(args.source)['data-predicted'] && getCell(target)['data-activated'] ?
-              'rgba(0,0,0,1)' : 'rgba(0,0,0,0.5)'
+              'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.1)'
           },args))
         }
       },
@@ -218,7 +215,8 @@ function nViz(){
           sourceX: args.sourceX + (getCell(args.source).width / 2),
           sourceY: args.sourceY + (getCell(args.source).height / 2),
           targetX: x,
-          targetY: y
+          targetY: y,
+          color: 'rgba(0,0,0,0.4)'
         },args))
         var segment = nViz.render.segment(merge({
           sourceX: x,
@@ -235,13 +233,11 @@ function nViz(){
           var target = getCell(args.targets[i])
           if(source && target){
             nViz.render.dendrite(merge({
-              color: (target['data-activated'] && args.activeColumn) ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.2)',
+              color: (target['data-activated'] && args.activeColumn) ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)',
               sourceX: source.x + (args.sourceOffsetX || args.offsetX || 0),
               sourceY: source.y + (args.sourceOffsetY || args.offsetY || 0),
               targetX: target.x + (args.targetOffsetX || args.offsetX || 0),
               targetY: target.y + (args.targetOffsetY || args.offsetY || 0),
-              class: 'nViz-distal-dendrite ' + (args.class || ''),
-              attrs: { 'stroke-opacity': opacity }
             },args))
           }
         }
@@ -265,7 +261,6 @@ function nViz(){
         for(var i = 0; i < args.cells.length; i++){
           var cell = nViz.render.cell(merge({
             id: args.cells[i].id,
-            class: (args.class || '') + ' nViz-cell-' + i,
             x: args.offsetX || 0,
             y: i * (args.cellSize + args.cellMargin) + (args.offsetY || 0),
             size: args.cellSize || args.cells[i].size,
@@ -301,58 +296,27 @@ function nViz(){
             activeColumn: args.columns[i].active,
             data: {columnIndex: i}
           },args))
-          events.addEvent(className, function(e){
-            var fadeOut = document.getElementsByClassName('nViz-distal-dendrite')
-            for(var c = 0; c < fadeOut.length; c++)
-              if(fadeOut[c].getAttribute('data-columnIndex') != e.target.getAttribute('data-columnIndex'))
-                fadeOut[c].setAttribute('opacity',0.01)
-          })
-          events.addEvent('recoverColumnVisibility', function(e){
-            var cells = document.getElementsByClassName('nViz-distal-dendrite')
-            for(var c = 0; c < cells.length; c++)
-              cells[c].setAttribute('opacity',1)
-          })
         }
       },
 
       temporalMemory: function(args){
         var cellSize = args.cellSize || settings.cellSize
         for(var i = 0; i < args.columns.length; i++){
-          var className = 'nViz-column'
           var column = nViz.render.column(merge({
-            class: className + ' nViz-column-' + i,
             cells: args.columns[i].cells,
             cellSize: cellSize,
             cellMargin: args.cellMargin || 1,
             offsetX: (cellSize + (args.cellMargin || 1)) * i,
-            active: args.columns[i].active,
-            events: {
-              onmouseenter: function(e){ events.triggerEvent(className,e) },
-              onmouseleave: function(e){ events.triggerEvent('recoverColumnVisibility',e) }
-            },
-            data: {columnIndex: i}
+            active: args.columns[i].active
           },args))
-          events.addEvent(className, function(e){
-            var fadeOut = document.getElementsByClassName('nViz-column')
-            for(var c = 0; c < fadeOut.length; c++)
-              if(fadeOut[c].getAttribute('data-columnIndex') != e.target.getAttribute('data-columnIndex'))
-                fadeOut[c].setAttribute('opacity',0)
-          })
-          events.addEvent('recoverColumnVisibility', function(e){
-            var fadeIn = document.getElementsByClassName('nViz-column')
-            for(var c = 0; c < fadeIn.length; c++)
-              fadeIn[c].setAttribute('opacity',1)
-          })
         }
         for(var c = 0; c < args.columns.length; c++){
           for(var i = 0; i < args.columns[c].cells.length; i++){
             for(var s = 0; s < args.columns[c].cells[i].segments.length; s++){
               var segment = {
-                class: 'nViz-column',
-                attrs: {'stroke-opacity': 0.2},
                 data: { columnIndex: c },
                 cellSize: cellSize,
-                opacity: args.columns[c].cells[i].predicted ? 1 : 0.01
+                opacity: args.columns[c].cells[i].predicted ? 1 : 0.05
               }
               for(var a in args.columns[c].cells[i].segments[s])
                 segment[a] = args.columns[c].cells[i].segments[s][a]
@@ -435,46 +399,6 @@ function nViz(){
     }
 
   }
-
-}
-
-
-/*
-   EVENT HANDLER
-*/
-
-function EventsHandler(){
-
-  this.events = {}
-  this.subscriptions = {}
-
-}
-
-EventsHandler.prototype.addEvent = function(id,fn){
-
-  if(!this.events[id])
-    this.events[id] = []
-  this.events[id].push(fn)
-
-}
-
-EventsHandler.prototype.removeEvent = function(id){
-
-  if(this.events[id])
-    delete this.events[id]
-
-}
-
-EventsHandler.prototype.clearEvent = function(id){
-
-  this.events[id] = []
-
-}
-
-EventsHandler.prototype.triggerEvent = function(id,e){
-
-  for(var i = 0; i < this.events[id].length; i++)
-    this.events[id][i](e)
 
 }
 

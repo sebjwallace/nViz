@@ -1,6 +1,7 @@
 
 nViz.settings({
-  root:document.getElementById('svg')
+  root: document.getElementById('canvas').getContext('2d'),
+  outputFormat: 'canvas'
 })
 
 nViz.animate({
