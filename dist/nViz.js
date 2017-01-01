@@ -11,6 +11,9 @@ function nViz(){
     cellMargin: 1
   }
 
+  var mouseX = 0
+  var mouseY = 0
+
   var cellIndex = {}
   function indexCell(cell,x,y){
     cellIndex[cell.id] = {
@@ -29,6 +32,14 @@ function nViz(){
 
   function createNode(type){
     return {type:type}
+  }
+
+  function isInBounds(x,y,r){
+    if(mouseX == 0 && mouseY == 0)
+      return true
+    var dx = mouseX - x
+    var dy = mouseY - y
+    return (dx*dx) + (dy*dy) <= (r * r)
   }
 
   function setAttributes(node,attrs){
@@ -82,8 +93,15 @@ function nViz(){
 
     settings: function(args){
       cellIndex = {}
-      for(var i in args)
+      for(var i in args){
         settings[i] = args[i]
+        if(i == 'root'){
+          args[i].canvas.onmousemove = function(e){
+            mouseX = e.pageX - this.offsetLeft
+            mouseY = e.pageY - this.offsetTop
+          }
+        }
+      }
     },
 
     clear: function(root){
@@ -93,6 +111,10 @@ function nViz(){
 
     animate: function(args){
       var step = 0
+      settings.root.canvas.onclick = function(){
+        nViz.clear()
+        args.render(args.steps[step])
+      }
       if(!args.keyboardControl){
         var interval = setInterval(function(){
           nViz.clear()
@@ -111,6 +133,8 @@ function nViz(){
             step -= (step > 0 ? 1 : 0)
           else if(e.keyCode == 39)
             step += (step < (args.steps.length-1) ? 1 : 0)
+          mouseX = 0
+          mouseY = 0
           nViz.clear()
           args.render(args.steps[step])
         }
@@ -128,16 +152,24 @@ function nViz(){
         color = args.inActiveColumn ? 'rgb(210,210,140)' : color
         color = args.activated ? 'yellow' : color
         color = args.predicted ? 'orange' : color
+        var x = args.x + (size * 0.5)
+        var y = args.y + (size * 0.5)
         var attrs = {
           id: args.id,
           height: size,
           width: size,
+          x: args.x,
+          y: args.y,
+          cx: x,
+          cy: y,
           r: size / 2,
           fill: color,
-          x: args.x || 0, cx: (args.x + (size * 0.5)) || 0,
-          y: args.y || 0, cy: (args.y + (size * 0.5)) || 0,
+          opacity: isInBounds(x,y,size/2) ? 1 : 0.1,
           'data-activated': args.activated,
-          'data-predicted': args.predicted
+          'data-predicted': args.predicted,
+          onclick: function(){
+            console.log(args.x)
+          }
         }
         setAttributes(cell,merge(attrs,args))
         indexCell(attrs)
@@ -189,8 +221,7 @@ function nViz(){
             headSize: 1,
             target: getCell(args.targets[i]),
             opacity: (args.opacity || 1) * (args.targets[i].weight || 1),
-            color: getCell(args.source)['data-predicted'] && getCell(target)['data-activated'] ?
-              'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.1)'
+            color: getCell(args.source).opacity == 1 ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)'
           },args))
         }
       },
@@ -216,7 +247,7 @@ function nViz(){
           sourceY: args.sourceY + (getCell(args.source).height / 2),
           targetX: x,
           targetY: y,
-          color: 'rgba(0,0,0,0.4)'
+          color: getCell(args.source).opacity == 1 ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)'
         },args))
         var segment = nViz.render.segment(merge({
           sourceX: x,
@@ -233,7 +264,7 @@ function nViz(){
           var target = getCell(args.targets[i])
           if(source && target){
             nViz.render.dendrite(merge({
-              color: (target['data-activated'] && args.activeColumn) ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.2)',
+              color: (target['data-activated'] && args.activeColumn) ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.1)',
               sourceX: source.x + (args.sourceOffsetX || args.offsetX || 0),
               sourceY: source.y + (args.sourceOffsetY || args.offsetY || 0),
               targetX: target.x + (args.targetOffsetX || args.offsetX || 0),
@@ -316,7 +347,7 @@ function nViz(){
               var segment = {
                 data: { columnIndex: c },
                 cellSize: cellSize,
-                opacity: args.columns[c].cells[i].predicted ? 1 : 0.05
+                opacity: args.columns[c].cells[i].predicted ? 1 : 0.1
               }
               for(var a in args.columns[c].cells[i].segments[s])
                 segment[a] = args.columns[c].cells[i].segments[s][a]
