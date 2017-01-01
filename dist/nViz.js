@@ -20,6 +20,7 @@ function nViz(){
       y: y || 0
     }
   }
+
   function getCell(cell){
     if(typeof cell == 'string')
       return cellIndex[cell].cell
@@ -84,7 +85,7 @@ function nViz(){
     },
 
     animate: function(args){
-      var step = 1
+      var step = 0
       if(!args.keyboardControl){
         var interval = setInterval(function(){
           (args.root || settings.root).innerHTML = ''
@@ -107,7 +108,7 @@ function nViz(){
           args.render(args.steps[step])
         }
       }
-      args.render(args.steps[0])
+      args.render(args.steps[step])
     },
 
     render: {
@@ -192,7 +193,7 @@ function nViz(){
             target: getCell(args.targets[i]),
             opacity: (args.opacity || 1) * (args.targets[i].weight || 1),
             color: getCell(args.source)['data-predicted'] && getCell(target)['data-activated'] ?
-              'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.4)'
+              'rgba(0,0,0,1)' : 'rgba(0,0,0,0.5)'
           },args))
         }
       },
@@ -217,7 +218,7 @@ function nViz(){
           sourceX: args.sourceX + (getCell(args.source).width / 2),
           sourceY: args.sourceY + (getCell(args.source).height / 2),
           targetX: x,
-          targetY: y,
+          targetY: y
         },args))
         var segment = nViz.render.segment(merge({
           sourceX: x,
@@ -270,6 +271,8 @@ function nViz(){
             size: args.cellSize || args.cells[i].size,
             color: args.color || args.cells[i].color,
             inActiveColumn: args.active ? true : false,
+            events: args.events,
+            data: args.data
           },args.cells[i]))
         }
       },
@@ -369,7 +372,7 @@ function nViz(){
             var color = bitIndex[(y*sqrt)+x] ? (args.activeColor || 'black')
               : (args.inactiveColor || 'rgba(0,0,0,0.2)')
             var bit = createNode('rect')
-            var cellSize = args.size || settings.cellSize
+            var cellSize = args.cellSize || settings.cellSize
             setAttributes(bit,{
               height: cellSize,
               width: cellSize,
