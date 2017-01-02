@@ -8,7 +8,12 @@ function nViz(){
   var settings = {
     root: document.querySelector('canvas').getContext('2d'),
     cellSize: 10,
-    cellMargin: 1
+    cellMargin: 1,
+    synapseSize: 2,
+    inactiveCellColor: 'lightgray',
+    activeCellColor: 'yellow',
+    predictedCellColor: 'orange',
+    activeColumnCellColor: 'rgb(210,210,140)'
   }
 
   var mouseX = 0
@@ -148,10 +153,10 @@ function nViz(){
         args = normalizeArgs(args)
         var size = args.size || settings.size
         var cell = createNode('circle')
-        var color = args.color || 'lightgray'
-        color = args.inActiveColumn ? 'rgb(210,210,140)' : color
-        color = args.activated ? 'yellow' : color
-        color = args.predicted ? 'orange' : color
+        var color = settings.inactiveCellColor
+        color = args.inActiveColumn ? settings.activeColumnCellColor : color
+        color = args.activated ? settings.activeCellColor : color
+        color = args.predicted ? settings.predictedCellColor : color
         var x = args.x + (size * 0.5)
         var y = args.y + (size * 0.5)
         var attrs = {
@@ -166,10 +171,7 @@ function nViz(){
           fill: color,
           opacity: isInBounds(x,y,size/2) ? 1 : 0.1,
           'data-activated': args.activated,
-          'data-predicted': args.predicted,
-          onclick: function(){
-            console.log(args.x)
-          }
+          'data-predicted': args.predicted
         }
         setAttributes(cell,merge(attrs,args))
         indexCell(attrs)
@@ -198,14 +200,17 @@ function nViz(){
         var tX = args.targetX + centered - (Math.cos(direction) * centered)
         var tY = args.targetY + centered - (Math.sin(direction) * centered)
         var angle = Math.atan2(tY-sY,tX-sX)
+        var synapseSize = settings.synapseSize
         setAttributes(dendrite,merge({
           stroke : args.color || 'black',
           fill: 'none',
           opacity: (args.opacity || 1) * (args.weight || 1),
           path: args.hideTail ? [[sX,sY],[tX,tY]] : [[sX,sY],[tX,tY],
-            [(tX) + Math.cos(angle-45) * 5,(tY) + Math.sin(angle-45) * 5],
+            [(tX) + Math.cos(angle-45) * synapseSize,
+              (tY) + Math.sin(angle-45) * synapseSize],
             [tX,tY],
-            [(tX) + Math.cos(angle+45) * 5,(tY) + Math.sin(angle+45) * 5],
+            [(tX) + Math.cos(angle+45) * synapseSize,
+              (tY) + Math.sin(angle+45) * synapseSize],
             [tX,tY]
           ]
         },args))
