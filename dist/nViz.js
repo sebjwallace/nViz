@@ -6,7 +6,6 @@
 function nViz(){
 
   var settings = {
-    root: document.querySelector('canvas').getContext('2d'),
     cellSize: 10,
     cellMargin: 1,
     synapseSize: 2,
@@ -48,7 +47,12 @@ function nViz(){
   }
 
   function setAttributes(node,attrs){
-    var ctx = settings.root
+    var ctx = settings.context
+    if(node.type == 'rect'){
+      ctx.fillStyle = attrs.fill || 'black'
+      ctx.globalAlpha = attrs.opacity,
+      ctx.fillRect(attrs.x,attrs.y,attrs.height,attrs.width || attrs.height)
+    }
     if(node.type == 'circle'){
       ctx.beginPath()
       ctx.arc(attrs.cx,attrs.cy,attrs.r,0*Math.PI,2*Math.PI)
@@ -100,8 +104,9 @@ function nViz(){
       cellIndex = {}
       for(var i in args){
         settings[i] = args[i]
-        if(i == 'root'){
-          args[i].canvas.onmousemove = function(e){
+        if(i == 'canvas'){
+          settings.context = args[i].getContext('2d')
+          args[i].onmousemove = function(e){
             mouseX = e.pageX - this.offsetLeft
             mouseY = e.pageY - this.offsetTop
           }
@@ -109,14 +114,14 @@ function nViz(){
       }
     },
 
-    clear: function(root){
-      var canvas = settings.root.canvas
-      settings.root.clearRect(0,0,canvas.height,canvas.width)
+    clear: function(canvas){
+      var canvas = settings.canvas
+      settings.context.clearRect(0,0,canvas.height,canvas.width)
     },
 
     animate: function(args){
       var step = 0
-      settings.root.canvas.onclick = function(){
+      settings.canvas.onclick = function(){
         nViz.clear()
         args.render(args.steps[step])
       }
@@ -362,27 +367,36 @@ function nViz(){
         }
       },
 
-      sdr: function(args){
-        var bitIndex = {}
-        for(var i = 0; i < args.activeBits.length; i++)
-          bitIndex[args.activeBits[i]] = true
-        var sqrt = Math.sqrt(args.nBits)
+      SDRgrid: function(args){
+        var sqrt = Math.sqrt(args.numBits)
         for(var y = 0; y < sqrt; y++){
           for(var x = 0; x < sqrt; x++){
-            var color = bitIndex[(y*sqrt)+x] ? (args.activeColor || 'black')
-              : (args.inactiveColor || 'rgba(0,0,0,0.2)')
+            var isActive = args.condition ? args.condition(x,y,sqrt) : args.activeBits[(y*sqrt)+x]
+            var color = isActive ? (args.activeColor || 'black')
+              : (settings.inactiveBitColor || 'rgba(0,0,0,0.2)')
             var bit = createNode('rect')
             var cellSize = args.cellSize || settings.cellSize
             setAttributes(bit,{
               height: cellSize,
               width: cellSize,
               fill: color,
+              opacity: 1,
               x: (cellSize + 1) * x,
               y: (cellSize + 1) * y
             })
-            settings.root.appendChild(bit)
           }
         }
+      },
+
+      sdr: function(args){
+        var bitIndex = {}
+        for(var i = 0; i < args.activeBits.length; i++)
+          bitIndex[args.activeBits[i]] = true
+        nViz.render.SDRgrid({
+          numBits: args.nBits,
+          activeBits: bitIndex,
+          cellSize: 3
+        })
       },
 
       sdrOR: function(args){
@@ -390,22 +404,11 @@ function nViz(){
         for(var x = 0; x < args.sdrs.length; x++)
           for(var y = 0; y < args.sdrs[x].length; y++)
             bitIndex[args.sdrs[x][y]] = true
-        var sqrt = Math.sqrt(args.nBits)
-        for(var y = 0; y < sqrt; y++){
-          for(var x = 0; x < sqrt; x++){
-            var color = bitIndex[(y*sqrt)+x] ? (args.activeColor || 'black')
-              : (args.inactiveColor || 'rgba(0,0,0,0.2)')
-            var bit = createNode('rect')
-            setAttributes(bit,{
-              height: args.size || 8,
-              width: args.size || 8,
-              fill: color,
-              x: ((args.size || 8) + 1) * x,
-              y: ((args.size || 8) + 1) * y
-            })
-            settings.root.appendChild(bit)
-          }
-        }
+        nViz.render.SDRgrid({
+          numBits: args.nBits,
+          activeBits: bitIndex,
+          cellSize: 3
+        })
       },
 
       sdrAND: function(args){
@@ -413,23 +416,14 @@ function nViz(){
         for(var x = 0; x < args.sdrs.length; x++)
           for(var y = 0; y < args.sdrs[x].length; y++)
             bitIndex[args.sdrs[x][y]] = bitIndex[args.sdrs[x][y]]+1 || 1
-        var sqrt = Math.sqrt(args.nBits)
-        for(var y = 0; y < sqrt; y++){
-          for(var x = 0; x < sqrt; x++){
-            var color = bitIndex[(y*sqrt)+x] == args.sdrs.length ?
-              (args.activeColor || 'black')
-              : (args.inactiveColor || 'rgba(0,0,0,0.2)')
-            var bit = createNode('rect')
-            setAttributes(bit,{
-              height: args.size || 8,
-              width: args.size || 8,
-              fill: color,
-              x: ((args.size || 8) + 1) * x,
-              y: ((args.size || 8) + 1) * y
-            })
-            settings.root.appendChild(bit)
-          }
-        }
+        nViz.render.SDRgrid({
+          numBits: args.nBits,
+          activeBits: bitIndex,
+          condition: function(x,y,sqrt){
+            return bitIndex[(y*sqrt)+x] == args.sdrs.length
+          },
+          cellSize: 3
+        })
       }
 
     }
