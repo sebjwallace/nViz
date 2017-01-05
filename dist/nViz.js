@@ -237,7 +237,7 @@ function nViz(){
         }
       },
 
-      proximalDendrite: function(args){
+      distalDendrite: function(args){
         args = normalizeArgs(args)
         var arrX = args.targets.map(function(v)
           {return getCell(v.cell || v.id).x})
@@ -265,7 +265,7 @@ function nViz(){
         },args))
       },
 
-      distalDendrite: function(args){
+      proximalDendrite: function(args){
         for(var i = 0; i < args.targets.length; i++){
           if(args.permanences)
             var opacity = args.permanences[i] > args.permananceThreshold ? 0.2 : 0.08
@@ -330,7 +330,7 @@ function nViz(){
         },args))
         for(var i = 0; i < args.columns.length; i++){
           var className = 'nViz-column'
-          var distalDendrite = nViz.render.distalDendrite(merge({
+          var proximalDendrite = nViz.render.proximalDendrite(merge({
             source: args.columns[i].cells[0],
             targets: args.columns[i].sources,
             sourceOffsetX: (args.cellSize || settings.cellSize) * 0.5,
@@ -378,7 +378,7 @@ function nViz(){
                 }
                 for(var a in args.columns[c].cells[i].segments[s])
                   segment[a] = args.columns[c].cells[i].segments[s][a]
-                nViz.render.proximalDendrite(merge(segment,args))
+                nViz.render.distalDendrite(merge(segment,args))
               }
             }
           }
