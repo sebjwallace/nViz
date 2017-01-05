@@ -12,7 +12,9 @@ function nViz(){
     inactiveCellColor: 'lightgray',
     activeCellColor: 'yellow',
     predictedCellColor: 'orange',
-    activeColumnCellColor: 'rgb(210,210,140)'
+    activeColumnCellColor: 'rgb(210,210,140)',
+    activeDendriteColor: 'rgba(0,0,0,0.4)',
+    inactiveDendriteColor: 'rgba(0,0,0,0.02)'
   }
 
   var mouseX = 0
@@ -228,11 +230,13 @@ function nViz(){
         for(var i = 0; i < args.targets.length; i++){
           var target = args.targets[i]
           var dendriteOpacity = target.permanance > target.permananceThreshold ? 0.2 : 0.08
+          var cellNode = getCell(args.targets[i])
           nViz.render.dendrite(merge({
             headSize: 1,
             target: getCell(args.targets[i]),
             opacity: (args.opacity || 1) * (args.targets[i].weight || 1),
-            color: getCell(args.source).opacity == 1 ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)'
+            color: cellNode['data-predicted'] || cellNode['data-activated'] ?
+              settings.activeDendriteColor : settings.inactiveDendriteColor
           },args))
         }
       },
@@ -251,12 +255,14 @@ function nViz(){
         var deltaY = args.sourceY - minY
         var x = minX + ((maxX - minX) / 2) + (deltaX * 0.25)
         var y = minY + ((maxY - minY) / 2) + (deltaY * 0.25)
+        var cellNode = getCell(args.source)
         var dendrite = nViz.render.dendrite(merge({
           hideTail: true,
           source: args.source,
           targetX: x,
           targetY: y,
-          color: getCell(args.source).opacity == 1 ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)'
+          color: cellNode['data-predicted'] || cellNode['data-activated'] ?
+            settings.activeDendriteColor : settings.inactiveDendriteColor
         },args))
         var segment = nViz.render.segment(merge({
           sourceX: x,
