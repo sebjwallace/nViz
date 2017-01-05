@@ -156,7 +156,7 @@ function nViz(){
 
       cell: function(args){
         args = normalizeArgs(args)
-        var size = args.size || settings.size
+        var size = args.size || settings.size || settings.cellSize
         var cell = createNode('circle')
         var color = settings.inactiveCellColor
         color = args.inActiveColumn ? settings.activeColumnCellColor : color
@@ -260,6 +260,7 @@ function nViz(){
         var segment = nViz.render.segment(merge({
           sourceX: x,
           sourceY: y,
+          targets: args.targets
         },args))
       },
 
@@ -300,15 +301,15 @@ function nViz(){
 
       column: function(args){
         for(var i = 0; i < args.cells.length; i++){
+          var cellSize = args.cellSize || settings.cellSize
+          var cellMargin = args.cellMargin || settings.cellMargin
           var cell = nViz.render.cell(merge({
             id: args.cells[i].id,
-            x: args.offsetX || 0,
-            y: i * (args.cellSize + args.cellMargin) + (args.offsetY || 0),
+            x: args.offsetX || args.offset || 0,
+            y: i * (cellSize + cellMargin) + (args.offsetY || args.offset || 0),
             size: args.cellSize || args.cells[i].size,
             color: args.color || args.cells[i].color,
-            inActiveColumn: args.active ? true : false,
-            events: args.events,
-            data: args.data
+            inActiveColumn: args.active ? true : false
           },args.cells[i]))
         }
       },
