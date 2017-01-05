@@ -1,0 +1,44 @@
+<html>
+
+  <head>
+    <title>nViz - Temporal Memory Basic</title>
+  </head>
+
+  <body>
+
+    <!-- <svg height="400" width="400" id='svg'></svg> -->
+    <canvas id="canvas" height="400" width="400"></canvas>
+    <div>Unlike the default temporal memory viz that visualizes segments, this visualization just renders the connections between cells.</div>
+    <br>
+    <div>Use the left and right keys to move through the sequence</div>
+    <div>Click on a cell to view its <b>connections only</b>, then press any key to deselect</div>
+
+    <script src="exampleData.js"></script>
+    <script src="../dist/nViz.js"></script>
+
+    <script>
+      nViz.settings({
+        canvas: document.getElementById('canvas')
+      })
+
+      nViz.animate({
+        steps: data,
+        keyboardControl: true,
+        speed: 1200,
+        repeat: true,
+        render: function(step){
+          step.withoutSegments = true
+          nViz.render.spatialPooler(step)
+        }
+      })
+    </script>
+
+    <style>
+       body{margin:none;padding:none;}
+    </style>
+
+  </body>
+
+
+
+</html>

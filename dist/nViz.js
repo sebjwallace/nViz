@@ -186,22 +186,22 @@ function nViz(){
       dendrite: function(args){
         args = normalizeArgs(args)
         var body = createNode('circle')
-        var size = args.headSize || args.size || 2
+        var size = args.headSize || 2
+        var cellSize = args.cellSize || settings.cellSize || getCell(args.source).height
+        var centered = cellSize * 0.5
         if(!args.hideHead){
-          setAttributes(body,merge({
+          setAttributes(body,{
             r: args.headSize || size,
-            cx: args.sourceX,
-            cy: args.sourceY,
+            cx: args.sourceX + centered,
+            cy: args.sourceY + centered,
             fill: args.color || 'black',
             opacity: args.opacity || 1
-          },args))
+          })
         }
-        var cellSize = args.cellSize || settings.cellSize
-        var centered = args.noAlignment ? 0 : (cellSize * 0.5)
         var direction = Math.atan2(args.targetY-args.sourceY,args.targetX-args.sourceX)
         var dendrite = createNode('path')
-        var sX = args.sourceX
-        var sY = args.sourceY
+        var sX = args.sourceX + centered
+        var sY = args.sourceY + centered
         var tX = args.targetX + centered - (Math.cos(direction) * centered)
         var tY = args.targetY + centered - (Math.sin(direction) * centered)
         var angle = Math.atan2(tY-sY,tX-sX)
@@ -252,9 +252,7 @@ function nViz(){
         var y = minY + ((maxY - minY) / 2) + (deltaY * 0.25)
         var dendrite = nViz.render.dendrite(merge({
           hideTail: true,
-          noAlignment: true,
-          sourceX: args.sourceX + (getCell(args.source).width / 2),
-          sourceY: args.sourceY + (getCell(args.source).height / 2),
+          source: args.source,
           targetX: x,
           targetY: y,
           color: getCell(args.source).opacity == 1 ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)'
@@ -353,15 +351,31 @@ function nViz(){
         }
         for(var c = 0; c < args.columns.length; c++){
           for(var i = 0; i < args.columns[c].cells.length; i++){
-            for(var s = 0; s < args.columns[c].cells[i].segments.length; s++){
-              var segment = {
-                data: { columnIndex: c },
-                cellSize: cellSize,
-                opacity: args.columns[c].cells[i].predicted ? 1 : 0.1
+            if(args.withoutSegments && args.columns[c].cells[i].segments.length){
+              var source = args.columns[c].cells[i]
+              for(var s = 0; s < args.columns[c].cells[i].segments.length; s++){
+                for(var t = 0; t < args.columns[c].cells[i].segments[s].targets.length; t++){
+                  var target = args.columns[c].cells[i].segments[s].targets[t]
+                  nViz.render.dendrite({
+                    source: source,
+                    target: target,
+                    cellSize: cellSize,
+                    opacity: source.predicted ? 0.8 : 0.1,
+                    color: getCell(source).opacity == 1 ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)'
+                  })
+                }
               }
-              for(var a in args.columns[c].cells[i].segments[s])
-                segment[a] = args.columns[c].cells[i].segments[s][a]
-              nViz.render.proximalDendrite(merge(segment,args))
+            } else {
+              for(var s = 0; s < args.columns[c].cells[i].segments.length; s++){
+                var segment = {
+                  data: { columnIndex: c },
+                  cellSize: cellSize,
+                  opacity: args.columns[c].cells[i].predicted ? 1 : 0.1
+                }
+                for(var a in args.columns[c].cells[i].segments[s])
+                  segment[a] = args.columns[c].cells[i].segments[s][a]
+                nViz.render.proximalDendrite(merge(segment,args))
+              }
             }
           }
         }
