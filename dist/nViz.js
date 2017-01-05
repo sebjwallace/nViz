@@ -284,11 +284,13 @@ function nViz(){
 
       layer: function(args){
         for(var i = 0; i < args.cells.length; i++){
+          var cellSize = args.cellSize || settings.cellSize
+          var cellMargin = args.cellMargin || settings.cellMargin
           nViz.render.cell(merge({
             id: args.cells[i].id,
-            x: i * (args.cellSize + args.cellMargin),
-            y: args.offset || 0,
-            size: args.cellSize || args.cells[i].size,
+            x: i * (cellSize + cellMargin) + ((args.offsetX || args.offset) || 0),
+            y: args.offsetY || args.offset || 0,
+            size: cellSize,
             color: args.color || args.cells[i].color,
             activated: args.cells[i].activated,
             predicted: args.cells[i].predicted
