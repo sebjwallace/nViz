@@ -121,16 +121,17 @@ function nViz(){
 
     animate: function(args){
       var step = 0
+      var steps = args.steps || []
       settings.canvas.onclick = function(){
         nViz.clear()
-        args.render(args.steps[step])
+        args.render(steps[step])
       }
       if(!args.keyboardControl){
         var interval = setInterval(function(){
           nViz.clear()
-          args.render(args.steps[step])
+          args.render(steps[step])
           step++
-          if(step >= args.steps.length){
+          if(step >= steps.length){
             if(args.repeat)
               step = 0
             else
@@ -142,14 +143,14 @@ function nViz(){
           if(e.keyCode == 37)
             step -= (step > 0 ? 1 : 0)
           else if(e.keyCode == 39)
-            step += (step < (args.steps.length-1) ? 1 : 0)
+            step += (step < (steps.length-1) ? 1 : 0)
           mouseX = 0
           mouseY = 0
           nViz.clear()
-          args.render(args.steps[step])
+          args.render(steps[step])
         }
       }
-      args.render(args.steps[step])
+      args.render(steps[step])
     },
 
     render: {
