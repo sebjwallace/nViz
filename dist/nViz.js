@@ -205,8 +205,8 @@ function nViz(){
         var dendrite = createNode('path')
         var sX = args.sourceX + centered
         var sY = args.sourceY + centered
-        var tX = args.targetX + centered - (Math.cos(direction) * centered)
-        var tY = args.targetY + centered - (Math.sin(direction) * centered)
+        var tX = args.targetX + centered - (args.hideTail ? 0 : (Math.cos(direction) * centered))
+        var tY = args.targetY + centered - (args.hideTail ? 0 : (Math.sin(direction) * centered))
         var angle = Math.atan2(tY-sY,tX-sX)
         var synapseSize = settings.synapseSize
         setAttributes(dendrite,merge({
