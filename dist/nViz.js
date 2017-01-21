@@ -9,12 +9,19 @@ function nViz(){
     cellSize: 10,
     cellMargin: 1,
     synapseSize: 2,
+    synapseAngle: 45,
+    segmentDistance: 0.4,
+    randomSegmentOffsetRadius: 0,
+    randomSegmentOffsetRadiusX: 0,
+    randomSegmentOffsetRadiusY: 0,
     inactiveCellColor: 'lightgray',
     activeCellColor: 'yellow',
     predictedCellColor: 'orange',
     activeColumnCellColor: 'rgb(210,210,140)',
     activeDendriteColor: 'rgba(0,0,0,0.4)',
-    inactiveDendriteColor: 'rgba(0,0,0,0.02)'
+    inactiveDendriteColor: 'rgba(0,0,0,0.02)',
+    activeInhibitionDendriteColor: 'rgba(200,0,0,0.8)',
+    inactiveInhibitionDendriteColor: 'rgba(200,0,0,0.04)'
   }
 
   var mouseX = 0
@@ -100,6 +107,23 @@ function nViz(){
     return copy
   }
 
+  function getConnectionColor(args,target){
+    var cellNode = getCell(target)
+    var activeDendriteColor = args.isInhibition ?
+      settings.activeInhibitionDendriteColor : settings.activeDendriteColor
+    var inactiveDendriteColor = args.isInhibition ?
+      settings.inactiveInhibitionDendriteColor : settings.inactiveDendriteColor
+    var color = cellNode['data-predicted'] || cellNode['data-activated'] ?
+      activeDendriteColor : inactiveDendriteColor
+    var permanance = target.permanance > target.permananceThreshold ?
+      'rgba(0,0,0,'+0.4+')' : 'rgba(0,0,0,'+0.1+')'
+    color = args.showPermanances ? permanance : color
+    color = args.showPermananceValues ? 'rgba(0,0,0,'+target.permanance+')' : color
+    color = args.showSourceActivity ?
+      (getCell(args.source)['data-activated'] ? activeDendriteColor : inactiveDendriteColor) : color
+    return color
+  }
+
   return {
 
     settings: function(args){
@@ -118,7 +142,7 @@ function nViz(){
 
     clear: function(canvas){
       var canvas = settings.canvas
-      settings.context.clearRect(0,0,canvas.height,canvas.width)
+      settings.context.clearRect(0,0,canvas.width,canvas.height)
     },
 
     animate: function(args){
@@ -183,6 +207,12 @@ function nViz(){
         }
         setAttributes(cell,merge(attrs,args))
         indexCell(attrs)
+        if(args.potential != undefined){
+          settings.context.fillStyle = 'white'
+          settings.context.fillText(args.potential,x-(size/4)-1,y-1)
+          settings.context.fillStyle = 'black'
+          settings.context.fillText(args.potential,x-(size/4),y)
+        }
         return cell
       },
 
@@ -208,17 +238,18 @@ function nViz(){
         var tX = args.targetX + centered - (args.hideTail ? 0 : (Math.cos(direction) * centered))
         var tY = args.targetY + centered - (args.hideTail ? 0 : (Math.sin(direction) * centered))
         var angle = Math.atan2(tY-sY,tX-sX)
-        var synapseSize = settings.synapseSize
+        var synapseSize = args.synapseSize || settings.synapseSize
+        var synapseAngle = args.synapseAngle || settings.synapseAngle
         setAttributes(dendrite,merge({
           stroke : args.color || 'black',
           fill: 'none',
           opacity: (args.opacity || 1) * (args.weight || 1),
           path: args.hideTail ? [[sX,sY],[tX,tY]] : [[sX,sY],[tX,tY],
-            [(tX) + Math.cos(angle-45) * synapseSize,
-              (tY) + Math.sin(angle-45) * synapseSize],
+            [(tX) + Math.cos(angle-synapseAngle) * synapseSize,
+              (tY) + Math.sin(angle-synapseAngle) * synapseSize],
             [tX,tY],
-            [(tX) + Math.cos(angle+45) * synapseSize,
-              (tY) + Math.sin(angle+45) * synapseSize],
+            [(tX) + Math.cos(angle+synapseAngle) * synapseSize,
+              (tY) + Math.sin(angle+synapseAngle) * synapseSize],
             [tX,tY]
           ]
         },args))
@@ -229,17 +260,14 @@ function nViz(){
         args = normalizeArgs(args)
         for(var i = 0; i < args.targets.length; i++){
           var target = args.targets[i]
-          var cellNode = getCell(args.targets[i])
-          var color = cellNode['data-predicted'] || cellNode['data-activated'] ?
-            settings.activeDendriteColor : settings.inactiveDendriteColor
-          var permanance = target.permanance > target.permananceThreshold ? 'rgba(0,0,0,'+0.4+')' : 'rgba(0,0,0,'+0.1+')'
-          color = args.showPermanances ? permanance : color
-          color = args.showPermananceValues ? 'rgba(0,0,0,'+target.permanance+')' : color
+          var cellNode = getCell(target)
+          var color = getConnectionColor(args,target)
           nViz.render.dendrite(merge({
             headSize: 1,
             target: cellNode,
             opacity: (args.opacity || 1) * (args.targets[i].weight || 1),
-            color: args.showTargetDendriteActivity ? color : args.color
+            color: (args.showTargetDendriteActivity || args.showSourceDendriteActivity)
+              ? color : args.color
           },args))
         }
       },
@@ -256,8 +284,18 @@ function nViz(){
         var minY = Math.min.apply(null,arrY)
         var deltaX = args.sourceX - minX
         var deltaY = args.sourceY - minY
-        var x = minX + ((maxX - minX) / 2) + (deltaX * 0.25)
-        var y = minY + ((maxY - minY) / 2) + (deltaY * 0.25)
+        var distX = deltaX * settings.segmentDistance
+        var distY = deltaY * settings.segmentDistance
+        var sourceCell = getCell(args.source)
+        var id = args.dendriteId || sourceCell.id
+        var randomDistX = parseInt(id.substring(4,12),36)/1000000000000
+        var randomDistY = parseInt(id.substring(5,13),36)/1000000000000
+        var randomX = randomDistX * (settings.randomSegmentOffsetRadiusX ||
+          settings.randomSegmentOffsetRadius) + 10
+        var randomY = randomDistY * (settings.randomSegmentOffsetRadiusY ||
+          settings.randomSegmentOffsetRadius) + 10
+        var x = (minX - distX) + ((maxX - minX) / 2) + distX + randomX
+        var y = (minY - distY) + ((maxY - minY) / 2) + distY + randomY
         var cellNode = getCell(args.source)
         var color = cellNode.opacity == 1 && (cellNode['data-predicted'] || cellNode['data-activated']) ?
           settings.activeDendriteColor : settings.inactiveDendriteColor
@@ -266,7 +304,7 @@ function nViz(){
           source: args.source,
           targetX: x,
           targetY: y,
-          color: color
+          color: args.activated ? settings.activeDendriteColor : settings.inactiveDendriteColor
         },args))
         var segment = nViz.render.segment(merge({
           sourceX: x,
@@ -283,15 +321,37 @@ function nViz(){
           else var opacity = (args.opacity || 0.4) * (args.targets[i].weight || 0.4)
           var source = getCell(args.source)
           var target = getCell(args.targets[i])
+          var color = getConnectionColor(args,args.targets[i])
           if(source && target){
             nViz.render.dendrite(merge({
-              color: (target['data-activated'] && args.activeColumn) ? settings.activeDendriteColor : settings.inactiveDendriteColor,
+              color: args.showTargetDendriteActivity || args.showSourceActivity ? color
+                : ((target['data-activated'] && args.activeColumn) ?
+                  settings.activeDendriteColor : settings.inactiveDendriteColor),
               sourceX: source.x + (args.sourceOffsetX || args.offsetX || 0),
               sourceY: source.y + (args.sourceOffsetY || args.offsetY || 0),
               targetX: target.x + (args.targetOffsetX || args.offsetX || 0),
               targetY: target.y + (args.targetOffsetY || args.offsetY || 0),
             },args))
           }
+        }
+      },
+
+      inhibitionDendrite: function(args){
+        var ctx = settings.context
+        var offs = settings.cellSize / 2
+        var s = getCell(args.source)
+        for(var i = 0; i < args.targets.length; i++){
+          var t = getCell(args.targets[i])
+          var color = (t['data-predicted'] || t['data-activated']) ?
+            settings.activeInhibitionDendriteColor : settings.inactiveInhibitionDendriteColor
+          ctx.strokeStyle = color
+          ctx.fillStyle = (s['data-predicted'] || s['data-activated']) ?
+            settings.activeInhibitionDendriteColor : settings.inactiveInhibitionDendriteColor
+          ctx.beginPath()
+          ctx.moveTo(s.x+offs,s.y+(offs*2))
+          ctx.bezierCurveTo(s.x+10,s.y+50,s.x+20,s.y+50,t.x+offs,t.y+(offs*2))
+          ctx.stroke()
+          ctx.fillRect(t.x+offs-4,t.y+(offs*2),8,1)
         }
       },
 
